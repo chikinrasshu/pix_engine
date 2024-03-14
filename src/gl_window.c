@@ -40,6 +40,7 @@ void gl_window_cb_pos(GLFWwindow *ptr, s32 x, s32 y);
 void gl_window_cb_size(GLFWwindow *ptr, s32 w, s32 h);
 void gl_window_cb_size_fb(GLFWwindow *ptr, s32 fw, s32 fh);
 void gl_window_cb_scale(GLFWwindow *ptr, r32 sx, r32 sy);
+void gl_window_cb_mouse_pos(GLFWwindow *ptr, r64 mx, r64 my);
 
 b32 init_gl_window_callbacks(gl_window *win) {
   if (!win) {
@@ -54,6 +55,7 @@ b32 init_gl_window_callbacks(gl_window *win) {
   glfwSetWindowSizeCallback(win->_ptr, gl_window_cb_size);
   glfwSetFramebufferSizeCallback(win->_ptr, gl_window_cb_size_fb);
   glfwSetWindowContentScaleCallback(win->_ptr, gl_window_cb_scale);
+  glfwSetCursorPosCallback(win->_ptr, gl_window_cb_mouse_pos);
 
   return true;
 }
@@ -64,15 +66,20 @@ b32 init_gl_window_defaults(gl_window *win) {
     return false;
   }
 
-  glfwGetWindowSize(win->_ptr, &win->w, &win->h);
-  glfwGetWindowContentScale(win->_ptr, &win->sx, &win->sy);
-  glfwGetFramebufferSize(win->_ptr, &win->fb.w, &win->fb.h);
+  glfwGetWindowSize(win->_ptr, &win->size.x, &win->size.y);
+  glfwGetWindowContentScale(win->_ptr, &win->scale.x, &win->scale.y);
+  glfwGetFramebufferSize(win->_ptr, &win->fb.size.x, &win->fb.size.y);
 
-  if (!create_bitmap(&win->fb, win->fb.w, win->fb.h, 4)) {
-    printf("Failed to create the main framebuffer of size %dx%d\n", win->fb.w,
-           win->fb.h);
+  r64 a, b;
+  glfwGetCursorPos(win->_ptr, &a, &b);
+  win->raw_mouse_pos.x = (r32)a, win->raw_mouse_pos.y = (r32)b;
+
+  if (!create_bitmap(&win->fb, win->fb.size, 4)) {
+    printf("Failed to create the main framebuffer of size %dx%d\n",
+           win->fb.size.x, win->fb.size.y);
     return false;
   }
+  win->viewport = (v4){0, 0, win->fb.size.x, win->fb.size.y};
 
   win->ct = win->lt = glfwGetTime();
   win->dt = 1;
@@ -104,10 +111,10 @@ b32 init_gl_window_opengl(gl_window *win) {
   r32 s = 1;
 
   // {{-s, -s, 0}, {+s, -s, 0}, {+s, +s, 0}, {-s, +s, 0}};
-  win->gl.vertices[0] = (vertex){+s, +s, 0, 1, 1};
-  win->gl.vertices[1] = (vertex){+s, -s, 0, 1, 0};
-  win->gl.vertices[2] = (vertex){-s, -s, 0, 0, 0};
-  win->gl.vertices[3] = (vertex){-s, +s, 0, 0, 1};
+  win->gl.vertices[0] = (vertex){{+s, +s, 0}, {1, 0}};
+  win->gl.vertices[1] = (vertex){{+s, -s, 0}, {1, 1}};
+  win->gl.vertices[2] = (vertex){{-s, -s, 0}, {0, 1}};
+  win->gl.vertices[3] = (vertex){{-s, +s, 0}, {0, 0}};
 
   // {0, 2, 3, 2, 3, 0}
   win->gl.indices[0] = 0;
@@ -127,8 +134,8 @@ b32 init_gl_window_opengl(gl_window *win) {
                   GL_LINEAR_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win->fb.w, win->fb.h, 0, GL_RGBA,
-               GL_UNSIGNED_BYTE, win->fb.memory);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win->fb.size.x, win->fb.size.y, 0,
+               GL_RGBA, GL_UNSIGNED_BYTE, win->fb.memory);
   glGenerateMipmap(GL_TEXTURE_2D);
 
   glGenVertexArrays(1, &win->gl.vao);
@@ -146,16 +153,16 @@ b32 init_gl_window_opengl(gl_window *win) {
                win->gl.indices, GL_STATIC_DRAW);
   // Define 3d vertex with layout [pos]
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex),
-                        (void *)offsetof(vertex, x));
+                        (void *)offsetof(vertex, pos));
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex),
-                        (void *)offsetof(vertex, u));
+                        (void *)offsetof(vertex, uv));
   glEnableVertexAttribArray(1);
 
   return true;
 }
 
-b32 create_gl_window(gl_window *win, s32 w, s32 h, cstr caption) {
+b32 create_gl_window(gl_window *win, v2i size, cstr caption) {
   if (!push_gl_window()) {
     return false;
   }
@@ -166,10 +173,10 @@ b32 create_gl_window(gl_window *win, s32 w, s32 h, cstr caption) {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_COMPAT_PROFILE, GLFW_OPENGL_FORWARD_COMPAT);
 
-  win->_ptr = glfwCreateWindow(w, h, caption, NULL, NULL);
+  win->_ptr = glfwCreateWindow(size.x, size.y, caption, NULL, NULL);
   if (!win->_ptr) {
     printf("Failed to create the main window named '%s' of size %dx%d\n",
-           caption, w, h);
+           caption, size.x, size.y);
     return false;
   }
 
@@ -227,22 +234,25 @@ b32 step_gl_window(gl_window *win, b32 process_events) {
     }
 
     // Upload the framebuffer (assume it changes every frame)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win->fb.w, win->fb.h, 0, GL_RGBA,
-                 GL_UNSIGNED_BYTE, win->fb.memory);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win->fb.size.x, win->fb.size.y, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, win->fb.memory);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     // Calculate the scale from internal resolution to window rectangle in
     // pixels
-    s32 sx = 0, sy = 0, sw = win->fb.w, sh = win->fb.h;
-    glClear(GL_COLOR_BUFFER_BIT);
+    s32 sx = 0, sy = 0, sw = win->fb.size.x, sh = win->fb.size.y;
+    r32 scale = 1.0f;
 
     if (win->locked_internal_res) {
       s32 sww, swh;
       glfwGetFramebufferSize(win->_ptr, &sww, &swh);
 
+      glViewport(0, 0, sww, swh);
+      glClear(GL_COLOR_BUFFER_BIT);
+
       r32 ww = (r32)sww, wh = (r32)swh;
-      r32 fw = (r32)win->fb.w, fh = (r32)win->fb.h;
-      r32 scale = fminf(ww / fw, wh / fh);
+      r32 fw = (r32)win->fb.size.x, fh = (r32)win->fb.size.y;
+      scale = fminf(ww / fw, wh / fh);
       if (scale >= 1.0 && win->integer_scaling) {
         scale = floorf(scale);
       }
@@ -250,8 +260,14 @@ b32 step_gl_window(gl_window *win, b32 process_events) {
       sw = (s32)(fw * scale), sh = (s32)(fh * scale);
       sx = (sww - sw) / 2, sy = (swh - sh) / 2;
     }
+
+    win->viewport = (v4){sx, sy, sw, sh};
+    win->mouse_pos.x = (win->raw_mouse_pos.x - sx) / scale;
+    win->mouse_pos.y = (win->raw_mouse_pos.y - sy) / scale;
+
     // Render the frame
-    glViewport(sx, sy, sw, sh);
+    glViewport(win->viewport.x, win->viewport.y, win->viewport.z,
+               win->viewport.w);
 
     glUseProgram(win->gl.sh.program);
     glActiveTexture(GL_TEXTURE0);
@@ -290,16 +306,15 @@ b32 run_gl_window(gl_window *win) {
   return true;
 }
 
-b32 lock_gl_window_internal_resolution(gl_window *win, s32 w, s32 h) {
+b32 lock_gl_window_internal_resolution(gl_window *win, v2i size) {
   if (!win) {
     printf("win was NULL\n");
     return false;
   }
 
   win->locked_internal_res = true;
-  win->fb.w = w;
-  win->fb.h = h;
-  return resize_bitmap(&win->fb, win->fb.w, win->fb.h);
+  win->fb.size = size;
+  return resize_bitmap(&win->fb, win->fb.size);
 }
 
 b32 unlock_gl_window_internal_resolution(gl_window *win) {
@@ -311,8 +326,8 @@ b32 unlock_gl_window_internal_resolution(gl_window *win) {
   if (win->locked_internal_res) {
     win->locked_internal_res = false;
 
-    glfwGetFramebufferSize(win->_ptr, &win->fb.w, &win->fb.h);
-    return resize_bitmap(&win->fb, win->fb.w, win->fb.h);
+    glfwGetFramebufferSize(win->_ptr, &win->fb.size.x, &win->fb.size.y);
+    return resize_bitmap(&win->fb, win->fb.size);
   }
 
   return true;
@@ -336,16 +351,16 @@ void gl_window_cb_refresh(GLFWwindow *ptr) {
 void gl_window_cb_pos(GLFWwindow *ptr, s32 x, s32 y) {
   gl_window *win = glfwGetWindowUserPointer(ptr);
   if (win) {
-    win->x = x;
-    win->y = y;
+    win->pos.x = x;
+    win->pos.y = y;
   }
 }
 
 void gl_window_cb_size(GLFWwindow *ptr, s32 w, s32 h) {
   gl_window *win = glfwGetWindowUserPointer(ptr);
   if (win) {
-    win->w = w;
-    win->h = h;
+    win->size.x = w;
+    win->size.y = h;
     printf("Resized window to %dx%d\n", w, h);
   }
 }
@@ -353,14 +368,23 @@ void gl_window_cb_size(GLFWwindow *ptr, s32 w, s32 h) {
 void gl_window_cb_size_fb(GLFWwindow *ptr, s32 fw, s32 fh) {
   gl_window *win = glfwGetWindowUserPointer(ptr);
   if (win && !win->locked_internal_res) {
-    resize_bitmap(&win->fb, fw, fh);
+    resize_bitmap(&win->fb, (v2i){fw, fh});
+    win->viewport = (v4){0, 0, fw, fh};
   }
 }
 
 void gl_window_cb_scale(GLFWwindow *ptr, r32 sx, r32 sy) {
   gl_window *win = glfwGetWindowUserPointer(ptr);
   if (win) {
-    win->sx = sx;
-    win->sy = sy;
+    win->scale.x = sx;
+    win->scale.y = sy;
+  }
+}
+
+void gl_window_cb_mouse_pos(GLFWwindow *ptr, r64 mx, r64 my) {
+  gl_window *win = glfwGetWindowUserPointer(ptr);
+  if (win) {
+    win->raw_mouse_pos.x = (r32)mx;
+    win->raw_mouse_pos.y = (r32)my;
   }
 }

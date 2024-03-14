@@ -9,16 +9,21 @@ add_subdirectory("${GLAD_SOURCES_DIR}/cmake" glad_cmake)
 glad_add_library(glad_41 REPRODUCIBLE API gl:core=4.1)
 
 add_executable(pix_engine 
-    "src/main.c" 
-    "src/common.h" 
+    "src/bitmap.c" 
+    "src/bitmap.h"
+    "src/common.h"
+    "src/color.c"  
+    "src/color.h" 
     "src/file.c" 
     "src/file.h" 
     "src/gl_window.c" 
     "src/gl_window.h" 
-    "src/bitmap.c" 
-    "src/bitmap.h"
+    "src/main.c" 
     "src/shader.c" 
-    "src/shader.h")
+    "src/shader.h"
+    "src/vec.c" 
+    "src/vec.h" 
+)
 target_compile_features(pix_engine PRIVATE c_std_11)
 
 target_link_libraries(pix_engine PUBLIC glfw)
