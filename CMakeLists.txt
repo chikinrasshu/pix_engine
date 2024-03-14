@@ -25,5 +25,5 @@ target_link_libraries(pix_engine PUBLIC glfw)
 target_link_libraries(pix_engine PUBLIC glad_41)
 
 add_custom_target(sym_data ALL
-    ${CMAKE_COMMAND} -E create_symlink "${CMAKE_SOURCE_DIR}/data"
-    "${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/data")
+    ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/data"
+    "$<TARGET_FILE_DIR:pix_engine>/data")

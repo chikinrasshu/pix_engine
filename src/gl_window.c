@@ -101,7 +101,7 @@ b32 init_gl_window_opengl(gl_window *win) {
     return false;
   }
 
-  r32 s = 0.95f;
+  r32 s = 1;
 
   // {{-s, -s, 0}, {+s, -s, 0}, {+s, +s, 0}, {-s, +s, 0}};
   win->gl.vertices[0] = (vertex){+s, +s, 0, 1, 1};

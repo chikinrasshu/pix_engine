@@ -24,7 +24,7 @@ b32 load_file(file *f, cstr path) {
   u32 fsize = ftell(fptr);
   fseek(fptr, 0, SEEK_SET);
 
-  f->memory = malloc(fsize);
+  f->memory = malloc(fsize + 1);
   if (!f->memory) {
     printf("Failed to allocate %u bytes for file '%s'\n", fsize, path);
     return false;
