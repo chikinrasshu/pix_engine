@@ -262,8 +262,10 @@ b32 step_gl_window(gl_window *win, b32 process_events) {
     }
 
     win->viewport = (v4){sx, sy, sw, sh};
-    win->mouse_pos.x = (win->raw_mouse_pos.x - sx) / scale;
-    win->mouse_pos.y = (win->raw_mouse_pos.y - sy) / scale;
+    win->mouse_pos.x =
+        ((win->raw_mouse_pos.x - (sx / win->scale.x)) / scale) * win->scale.x;
+    win->mouse_pos.y =
+        ((win->raw_mouse_pos.y - (sy / win->scale.x)) / scale) * win->scale.y;
 
     // Render the frame
     glViewport(win->viewport.x, win->viewport.y, win->viewport.z,
