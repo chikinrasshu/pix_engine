@@ -13,7 +13,7 @@
 
 static s32 g_gl_window_count = 0;
 
-b32 push_gl_window() {
+b32 push_gl_window(void) {
   if (g_gl_window_count == 0) {
     if (!glfwInit()) {
       return false;
@@ -26,7 +26,7 @@ b32 push_gl_window() {
   return true;
 }
 
-b32 pop_gl_window() {
+b32 pop_gl_window(void) {
   if (g_gl_window_count == 1)
     glfwTerminate();
   --g_gl_window_count;
@@ -234,6 +234,8 @@ b32 step_gl_window(gl_window *win, b32 process_events) {
     // Calculate the scale from internal resolution to window rectangle in
     // pixels
     s32 sx = 0, sy = 0, sw = win->fb.w, sh = win->fb.h;
+    glClear(GL_COLOR_BUFFER_BIT);
+
     if (win->locked_internal_res) {
       s32 sww, swh;
       glfwGetFramebufferSize(win->_ptr, &sww, &swh);
@@ -262,6 +264,7 @@ b32 step_gl_window(gl_window *win, b32 process_events) {
 
     // Present the frame
     glfwSwapBuffers(win->_ptr);
+    glFinish();
 
     // Calculate delta time
     win->lt = win->ct;

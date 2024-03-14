@@ -6,7 +6,7 @@ void on_frame(gl_window *win) {
   printf("\rRunning at %.2f fps\n", 1.0 / win->dt);
 }
 
-int main() {
+int main(void) {
   gl_window win = {0};
   if (!create_gl_window(&win, 800, 600, "pix_engine")) {
     return 1;

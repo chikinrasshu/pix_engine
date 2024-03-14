@@ -24,6 +24,12 @@ target_compile_features(pix_engine PRIVATE c_std_11)
 target_link_libraries(pix_engine PUBLIC glfw)
 target_link_libraries(pix_engine PUBLIC glad_41)
 
+if (MSVC)
+    target_compile_options(pix_engine PUBLIC /W4 /WX)
+else()
+    target_compile_options(pix_engine PUBLIC -Wall -Wextra -Wpedantic -Werror)
+endif()
+
 add_custom_target(sym_data ALL
     ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/data"
     "$<TARGET_FILE_DIR:pix_engine>/data")
