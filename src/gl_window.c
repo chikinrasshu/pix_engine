@@ -212,6 +212,11 @@ b32 destroy_gl_window(gl_window *win) {
   return pop_gl_window();
 }
 
+r32 map_1d(r32 v, r32 src_a, r32 src_b, r32 dst_a, r32 dst_b) {
+  r32 slope = 1.0 * (dst_b - dst_a) / (src_b - src_a);
+  return dst_a + slope * (v - src_a);
+}
+
 b32 step_gl_window(gl_window *win, b32 process_events) {
   if (!win) {
     printf("win was NULL\n");
@@ -243,12 +248,9 @@ b32 step_gl_window(gl_window *win, b32 process_events) {
     s32 sx = 0, sy = 0, sw = win->fb.size.x, sh = win->fb.size.y;
     r32 scale = 1.0f;
 
+    s32 sww, swh;
+    glfwGetFramebufferSize(win->_ptr, &sww, &swh);
     if (win->locked_internal_res) {
-      s32 sww, swh;
-      glfwGetFramebufferSize(win->_ptr, &sww, &swh);
-
-      glViewport(0, 0, sww, swh);
-      glClear(GL_COLOR_BUFFER_BIT);
 
       r32 ww = (r32)sww, wh = (r32)swh;
       r32 fw = (r32)win->fb.size.x, fh = (r32)win->fb.size.y;
@@ -261,13 +263,20 @@ b32 step_gl_window(gl_window *win, b32 process_events) {
       sx = (sww - sw) / 2, sy = (swh - sh) / 2;
     }
 
+    r32 mx = win->raw_mouse_pos.x * win->scale.x,
+        my = win->raw_mouse_pos.y * win->scale.y;
+
     win->viewport = (v4){sx, sy, sw, sh};
-    win->mouse_pos.x =
-        ((win->raw_mouse_pos.x - (sx / win->scale.x)) / scale) * win->scale.x;
-    win->mouse_pos.y =
-        ((win->raw_mouse_pos.y - (sy / win->scale.x)) / scale) * win->scale.y;
+    win->mouse_pos.x = floorf(map_1d(mx, sx, sx + sw, 0, win->fb.size.x));
+    win->mouse_pos.y = floorf(map_1d(my, sy, sy + sh, 0, win->fb.size.y));
+
+    printf("rmp: %.2fx%.2f; mp: %.2fx%.2f; fb: %dx%d; raw: %dx%d\n",
+           win->raw_mouse_pos.x, win->raw_mouse_pos.y, win->mouse_pos.x,
+           win->mouse_pos.y, win->fb.size.x, win->fb.size.y, sww, swh);
 
     // Render the frame
+    glViewport(0, 0, sww, swh);
+    glClear(GL_COLOR_BUFFER_BIT);
     glViewport(win->viewport.x, win->viewport.y, win->viewport.z,
                win->viewport.w);
 

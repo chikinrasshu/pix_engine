@@ -97,7 +97,7 @@ void on_frame(gl_window *win) {
 
 int main(void) {
   gl_window win = {0};
-  if (!create_gl_window(&win, (v2i){800, 600}, "pix_engine")) {
+  if (!create_gl_window(&win, (v2i){1280, 720}, "pix_engine")) {
     return 1;
   }
   win.run_fn = on_frame;
