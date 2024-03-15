@@ -1,6 +1,7 @@
 #include "soft.h"
 #include "color.h"
 
+#include <math.h>
 #include <stdlib.h>
 
 r32 dt_edge_fn(v2 a, v2 b, v2 c) {
@@ -9,11 +10,11 @@ r32 dt_edge_fn(v2 a, v2 b, v2 c) {
 
 void draw_triangle(bitmap *bmp, v2 a, v2 b, v2 c, v4 color) {
   // Get triangle bounds
-  r32 min_x = max(min(min(a.x, b.x), c.x), 0);
-  r32 min_y = max(min(min(a.y, b.y), c.y), 0);
+  r32 min_x = fmaxf(fminf(fminf(a.x, b.x), c.x), 0);
+  r32 min_y = fmaxf(fminf(fminf(a.y, b.y), c.y), 0);
 
-  r32 max_x = min(max(max(a.x, b.x), c.x), bmp->size.x);
-  r32 max_y = min(max(max(a.y, b.y), c.y), bmp->size.y);
+  r32 max_x = fminf(fmaxf(fmaxf(a.x, b.x), c.x), bmp->size.x - 1);
+  r32 max_y = fminf(fmaxf(fmaxf(a.y, b.y), c.y), bmp->size.y - 1);
 
   u8 *ptr = bmp->memory + bmp->stride * (s32)min_y + sizeof(u32) * (s32)min_x;
 

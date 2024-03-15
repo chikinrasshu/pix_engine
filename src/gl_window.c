@@ -1,6 +1,7 @@
 #include "gl_window.h"
 #include "bitmap.h"
 #include "common.h"
+#include "mapping.h"
 #include "shader.h"
 
 #include <glad/gl.h>
@@ -212,11 +213,6 @@ b32 destroy_gl_window(gl_window *win) {
   return pop_gl_window();
 }
 
-r32 map_1d(r32 v, r32 src_a, r32 src_b, r32 dst_a, r32 dst_b) {
-  r32 slope = 1.0 * (dst_b - dst_a) / (src_b - src_a);
-  return dst_a + slope * (v - src_a);
-}
-
 b32 step_gl_window(gl_window *win, b32 process_events) {
   if (!win) {
     printf("win was NULL\n");
@@ -263,12 +259,14 @@ b32 step_gl_window(gl_window *win, b32 process_events) {
       sx = (sww - sw) / 2, sy = (swh - sh) / 2;
     }
 
-    r32 mx = win->raw_mouse_pos.x * win->scale.x,
-        my = win->raw_mouse_pos.y * win->scale.y;
+    v2 mp = (v2){win->raw_mouse_pos.x * win->scale.x,
+                 win->raw_mouse_pos.y * win->scale.y};
 
     win->viewport = (v4){sx, sy, sw, sh};
-    win->mouse_pos.x = floorf(map_1d(mx, sx, sx + sw, 0, win->fb.size.x));
-    win->mouse_pos.y = floorf(map_1d(my, sy, sy + sh, 0, win->fb.size.y));
+    // win->mouse_pos.x = floorf(map_1d(mx, sx, sx + sw, 0, win->fb.size.x));
+    // win->mouse_pos.y = floorf(map_1d(my, sy, sy + sh, 0, win->fb.size.y));
+    win->mouse_pos = map_2d(mp, (v2){sx, sy}, (v2){sx + sw, sy + sh},
+                            (v2){0, 0}, (v2){win->fb.size.x, win->fb.size.y});
 
     printf("rmp: %.2fx%.2f; mp: %.2fx%.2f; fb: %dx%d; raw: %dx%d\n",
            win->raw_mouse_pos.x, win->raw_mouse_pos.y, win->mouse_pos.x,

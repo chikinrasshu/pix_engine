@@ -16,6 +16,8 @@ add_executable(pix_engine
     "src/color.h" 
     "src/file.c" 
     "src/file.h" 
+    "src/mapping.c"
+    "src/mapping.h"
     "src/gl_window.c" 
     "src/gl_window.h" 
     "src/main.c" 
