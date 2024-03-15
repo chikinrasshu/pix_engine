@@ -19,6 +19,8 @@ add_executable(pix_engine
     "src/gl_window.c" 
     "src/gl_window.h" 
     "src/main.c" 
+    "src/soft.c" 
+    "src/soft.h"
     "src/shader.c" 
     "src/shader.h"
     "src/vec.c" 
